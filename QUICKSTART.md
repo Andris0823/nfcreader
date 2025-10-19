@@ -4,7 +4,7 @@
 
 ### 1. Klónozd a projektet
 ```bash
-git clone https://github.com/Andris0823/nfcreader.git
+git clone <repository-url>
 cd nfcreader
 ```
 
@@ -109,12 +109,13 @@ nfcreader/
 - [Android NFC Guide](https://developer.android.com/guide/topics/connectivity/nfc)
 - [Jetpack Compose Tutorial](https://developer.android.com/jetpack/compose/tutorial)
 - [Room Database](https://developer.android.com/training/data-storage/room)
+- [NFC Forum](https://nfc-forum.org/)
 
 ## 📞 Támogatás
 
 Ha problémád van:
 1. Nézd meg a [Gyakori Problémák](#-gyakori-problémák) szekciót
-2. Nyiss egy [Issue-t](https://github.com/Andris0823/nfcreader/issues) GitHub-on
+2. Nyiss egy Issue-t GitHub-on
 3. Ellenőrizd a [Dokumentációt](README.md)
 
 ---
