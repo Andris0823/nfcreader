@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NFC Reader</string>
+    <string name="scan_instruction">Érintsd a telefont egy NFC tag-hez</string>
+    <string name="tag_detected">NFC tag észlelve!</string>
+    <string name="no_tags">Még nincsenek beolvasott címkék</string>
+    <string name="tag_id">Tag ID:</string>
+    <string name="tag_data">Adat:</string>
+    <string name="tag_timestamp">Időpont:</string>
+    <string name="scanned_tags">Beolvasott címkék</string>
+    <string name="clear_all">Összes törlése</string>
+    <string name="error_nfc_not_supported">Ez az eszköz nem támogatja az NFC-t</string>
+    <string name="error_nfc_disabled">Az NFC ki van kapcsolva. Kérlek, kapcsold be a beállításokban!</string>
+    <string name="enable_nfc">NFC bekapcsolása</string>
+    <string name="reading_tag">Tag olvasása...</string>
+    <string name="error_reading_tag">Hiba a tag olvasása során</string>
+</resources>
