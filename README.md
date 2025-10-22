@@ -7,6 +7,7 @@ Ez egy professzionális NFC tag (Mifare Ultralight) olvasó alkalmazás Android 
 ## ✨ Főbb Funkciók
 
 - **NFC Tag Olvasás**: Mifare Ultralight és más NFC tagek beolvasása
+- **Hőmérséklet Szenzor Támogatás**: NTAG21x T variánsok hőmérséklet adatának olvasása
 - **Hex → UTF-8 Dekódolás**: Automatikus adatkonverzió hexadecimális formátumból UTF-8 szöveggé
 - **Adatbázis Tárolás**: Beolvasott tagek perzisztens tárolása Room adatbázisban
 - **Modern UI**: Jetpack Compose alapú, Material Design 3 felhasználói felület
@@ -24,6 +25,7 @@ Ez a réteg felelős az adatok tárolásáért és kezeléséért.
   - `tagId`: Az NFC tag UID-je hexadecimális formátumban
   - `rawData`: Nyers hexadecimális adat
   - `decodedData`: UTF-8 dekódolt szöveg
+  - `temperature`: Hőmérséklet adat (Celsius), ha elérhető
   - `timestamp`: Beolvasás időpontja
 
 - **DAO (`NFCTagDao.kt`)**: Data Access Object - adatbázis műveletek definiálása
@@ -50,6 +52,7 @@ Ez a réteg tartalmazza az üzleti logikát és az adatok feldolgozását.
 
 - **NFCReader (`NFCReader.kt`)**: NFC tag olvasási és dekódolási logika
   - Mifare Ultralight specifikus olvasás
+  - NTAG21x T hőmérséklet szenzor támogatás
   - NDEF formátum támogatás
   - Hex → UTF-8 dekódolás
   - Többféle NFC technológia támogatása
@@ -196,7 +199,18 @@ nfcreader/
 2. **NFC engedélyezés**: Győződj meg róla, hogy az NFC be van kapcsolva az eszközön
 3. **Tag olvasás**: Érintsd a telefon hátlapját egy NFC taghez
 4. **Adat megjelenítés**: A beolvasott adat azonnal megjelenik a listában
-5. **Törlés**: Törölhetsz egyedi tageket vagy az összes tárolt adatot
+5. **Hőmérséklet**: Ha a tag támogatja (NTAG21x T variánsok), a hőmérséklet is megjelenik
+6. **Törlés**: Törölhetsz egyedi tageket vagy az összes tárolt adatot
+
+### Hőmérséklet Szenzor Támogatás
+
+Az alkalmazás támogatja a Mifare Ultralight NTAG21x T variánsokat, amelyek beépített hőmérséklet szenzorral rendelkeznek:
+- **Támogatott tagek**: NTAG210μ, NTAG213 TT, NTAG215 TT, stb.
+- **Mérési tartomány**: Általában -25°C és +70°C között
+- **Pontosság**: ±2°C
+- **Megjelenítés**: A hőmérséklet automatikusan megjelenik, ha a tag támogatja
+
+Az alkalmazás automatikusan észleli és olvassa a hőmérséklet adatot a 0x29 (41) memória oldalról, amely a NTAG21x T specifikáció szerint a hőmérséklet adatot tartalmazza.
 
 ## 💡 Fejlesztési Tippek és Tanácsok
 
