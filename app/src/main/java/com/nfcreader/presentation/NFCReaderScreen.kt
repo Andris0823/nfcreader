@@ -267,6 +267,12 @@ fun TagCard(
                 textColor = MaterialTheme.colorScheme.onTertiaryContainer
             )
             
+            // Hőmérséklet adat (ha elérhető)
+            tag.temperature?.let { temp ->
+                Spacer(modifier = Modifier.height(8.dp))
+                TemperatureSection(temperature = temp)
+            }
+            
             Spacer(modifier = Modifier.height(12.dp))
             
             // Időbélyeg
@@ -323,6 +329,51 @@ fun DataSection(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+/**
+ * Hőmérséklet adat megjelenítése.
+ */
+@Composable
+fun TemperatureSection(temperature: Double) {
+    Column {
+        Text(
+            text = stringResource(R.string.temperature),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.errorContainer,
+                            MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .padding(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "🌡️",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Text(
+                    text = String.format("%.2f °C", temperature),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
         }
     }
 }

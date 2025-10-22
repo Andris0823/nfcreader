@@ -63,6 +63,57 @@ object NFCReader {
     }
     
     /**
+     * Hőmérséklet leolvasása Mifare Ultralight tag-ről (NTAG21x T variánsok).
+     * A hőmérséklet adat általában a 0x29 (41) oldalon található.
+     * 
+     * @return Hőmérséklet Celsius fokban, vagy null ha nem érhető el
+     */
+    fun readTemperature(tag: Tag): Double? {
+        val mifareUltralight = MifareUltralight.get(tag)
+        return try {
+            mifareUltralight.connect()
+            
+            // NTAG21x T típusú tagek esetén a hőmérséklet adat a 0x29 (41) oldalon van
+            // A formátum: 2 byte előjeles integer (big-endian)
+            val temperaturePage = mifareUltralight.readPages(0x29)
+            
+            if (temperaturePage != null && temperaturePage.size >= 2) {
+                // Az első két byte tartalmazza a hőmérséklet adatot
+                val tempRaw = ((temperaturePage[0].toInt() and 0xFF) shl 8) or 
+                              (temperaturePage[1].toInt() and 0xFF)
+                
+                // Konvertálás előjeles értékké
+                val tempSigned = if (tempRaw and 0x8000 != 0) {
+                    tempRaw - 0x10000
+                } else {
+                    tempRaw
+                }
+                
+                // A hőmérséklet értéke 0.0625 °C léptékű
+                val temperature = tempSigned * 0.0625
+                
+                Log.d(TAG, "Temperature read: $temperature °C")
+                temperature
+            } else {
+                Log.w(TAG, "Temperature page data not available or invalid")
+                null
+            }
+        } catch (e: IOException) {
+            Log.w(TAG, "Could not read temperature - tag may not support temperature sensor", e)
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading temperature", e)
+            null
+        } finally {
+            try {
+                mifareUltralight.close()
+            } catch (e: IOException) {
+                Log.e(TAG, "Error closing Mifare Ultralight", e)
+            }
+        }
+    }
+    
+    /**
      * NDEF formátumú tag olvasása.
      */
     fun readNdef(tag: Tag): ByteArray? {
@@ -144,8 +195,9 @@ object NFCReader {
     
     /**
      * NFC tag teljes olvasása, több technológia kipróbálásával.
+     * Visszaadja a hex adatot, dekódolt adatot és a hőmérsékletet (ha elérhető).
      */
-    fun readTag(tag: Tag): Pair<String, String> {
+    fun readTag(tag: Tag): Triple<String, String, Double?> {
         // Először próbáljuk a Mifare Ultralight-ot
         val data = readMifareUltralight(tag) 
             ?: readNdef(tag) 
@@ -155,6 +207,9 @@ object NFCReader {
         val hexData = data.toHexString()
         val decodedData = decodeHexToUtf8(hexData)
         
-        return Pair(hexData, decodedData)
+        // Hőmérséklet olvasása (csak Mifare Ultralight T variánsok esetén)
+        val temperature = readTemperature(tag)
+        
+        return Triple(hexData, decodedData, temperature)
     }
 }

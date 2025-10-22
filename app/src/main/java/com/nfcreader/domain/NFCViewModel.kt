@@ -43,12 +43,13 @@ class NFCViewModel(application: Application) : AndroidViewModel(application) {
      * Új NFC tag hozzáadása az adatbázishoz.
      * A viewModelScope használatával automatikusan törölődik a coroutine, ha a ViewModel megszűnik.
      */
-    fun addTag(tagId: String, rawData: String, decodedData: String) {
+    fun addTag(tagId: String, rawData: String, decodedData: String, temperature: Double? = null) {
         viewModelScope.launch {
             val tag = NFCTag(
                 tagId = tagId,
                 rawData = rawData,
-                decodedData = decodedData
+                decodedData = decodedData,
+                temperature = temperature
             )
             repository.insertTag(tag)
         }

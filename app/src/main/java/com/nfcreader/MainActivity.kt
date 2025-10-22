@@ -127,14 +127,20 @@ class MainActivity : ComponentActivity() {
     private fun readTag(tag: Tag) {
         try {
             val tagId = NFCReader.getTagId(tag)
-            val (hexData, decodedData) = NFCReader.readTag(tag)
+            val (hexData, decodedData, temperature) = NFCReader.readTag(tag)
             
             // Tag mentése az adatbázisba a ViewModelen keresztül
-            viewModel.addTag(tagId, hexData, decodedData)
+            viewModel.addTag(tagId, hexData, decodedData, temperature)
+            
+            val message = if (temperature != null) {
+                getString(R.string.tag_detected_with_temp, temperature)
+            } else {
+                getString(R.string.tag_detected)
+            }
             
             Toast.makeText(
                 this,
-                getString(R.string.tag_detected),
+                message,
                 Toast.LENGTH_SHORT
             ).show()
             
