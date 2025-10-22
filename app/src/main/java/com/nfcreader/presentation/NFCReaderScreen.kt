@@ -273,6 +273,12 @@ fun TagCard(
                 TemperatureSection(temperature = temp)
             }
             
+            // Páratartalom adat (ha elérhető - CAEN qLOG RT0013)
+            tag.humidity?.let { humidity ->
+                Spacer(modifier = Modifier.height(8.dp))
+                HumiditySection(humidity = humidity)
+            }
+            
             Spacer(modifier = Modifier.height(12.dp))
             
             // Időbélyeg
@@ -369,6 +375,51 @@ fun TemperatureSection(temperature: Double) {
                 )
                 Text(
                     text = String.format("%.2f °C", temperature),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Páratartalom adat megjelenítése (CAEN qLOG RT0013).
+ */
+@Composable
+fun HumiditySection(humidity: Double) {
+    Column {
+        Text(
+            text = stringResource(R.string.humidity),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .padding(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "💧",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Text(
+                    text = String.format("%.1f %%", humidity),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
