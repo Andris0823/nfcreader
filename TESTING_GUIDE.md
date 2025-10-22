@@ -1,15 +1,16 @@
-# Hőmérséklet Szenzor Tesztelési Útmutató
+# CAEN qLOG RT0013 és Hőmérséklet Szenzor Tesztelési Útmutató
 
 ## Gyors Áttekintés
 
-Ez az útmutató segít a hőmérséklet szenzor funkció tesztelésében.
+Ez az útmutató segít a **CAEN qLOG RT0013** hőmérséklet és páratartalom szenzor, valamint általános NFC hőmérséklet szenzor funkciók tesztelésében.
 
 ## Előfeltételek
 
 ### Hardver
 - ✅ Android eszköz NFC támogatással (API 24+)
-- ✅ Mifare Ultralight NTAG21x T variáns NFC tag hőmérséklet szenzorral
-  - Javasolt: NTAG213 TT, NTAG215 TT, vagy NTAG216 TT
+- ✅ **CAEN RFID qLOG RT0013** (elsődleges, ajánlott) - hőmérséklet ÉS páratartalom
+- ✅ Mifare Ultralight NTAG21x T variáns NFC tag (fallback) - csak hőmérséklet
+  - Alternatíva: NTAG213 TT, NTAG215 TT, vagy NTAG216 TT
 
 ### Szoftver
 - ✅ Android Studio telepítve
@@ -18,10 +19,32 @@ Ez az útmutató segít a hőmérséklet szenzor funkció tesztelésében.
 
 ## NFC Tag Beszerzés
 
-### Ahol vásárolhatsz NTAG21x T tageket:
+### CAEN qLOG RT0013 (Elsődleges, Ajánlott)
+
+1. **Hivatalos Viszonteladók**:
+   - [CAEN RFID hivatalos oldal](https://www.caenrfid.com/)
+   - Európai viszonteladók
+   - Helyi RFID/NFC szaküzletek
+
+2. **Online Platformok**:
+   - Specializált RFID áruházak
+   - Ipari automatizálási kereskedők
+
+3. **Keresési Kulcsszavak**:
+   - "CAEN qLOG RT0013"
+   - "CAEN qLOGhumidity"
+   - "NFC temperature humidity logger"
+   - "ISO15693 temperature sensor"
+
+4. **Ár**: 
+   - Általában 15-30 EUR/darab
+   - Professzionális minőség, pontos szenzorok
+
+### NTAG21x T (Fallback Opció)
+
 1. **Online Áruházak**:
    - Amazon
-   - eBay
+   - eBay  
    - AliExpress (olcsóbb, de lassabb szállítás)
 
 2. **Elektronikai Alkatrész Boltok**:
@@ -33,11 +56,10 @@ Ez az útmutató segít a hőmérséklet szenzor funkció tesztelésében.
    - "NTAG213 TT"
    - "NTAG215 temperature tag"
    - "NFC temperature sensor tag"
-   - "NTAG tamper tag"
 
-### Ár
-- Általában 1-5 EUR/darab
-- Nagyobb mennyiségben olcsóbb
+4. **Ár**: 
+   - Általában 1-5 EUR/darab
+   - Nagyobb mennyiségben olcsóbb
 
 ## Tesztelési Lépések
 
