@@ -25,6 +25,12 @@ object NFCReader {
     
     private const val TAG = "NFCReader"
     
+    // CAEN qLOG RT0013 szenzor specifikációs határok
+    private const val MIN_TEMPERATURE = -40.0
+    private const val MAX_TEMPERATURE = 85.0
+    private const val MIN_HUMIDITY = 0.0
+    private const val MAX_HUMIDITY = 100.0
+    
     /**
      * NFC tag UID-jének kiolvasása hexadecimális formátumban.
      */
@@ -119,8 +125,8 @@ object NFCReader {
                 // Validate sensor readings - return null if values are unrealistic
                 // Temperature should be between -40°C and +85°C (sensor spec)
                 // Humidity should be between 0% and 100%
-                val validTemperature = if (temperature in -40.0..85.0) temperature else null
-                val validHumidity = if (humidity in 0.0..100.0) humidity else null
+                val validTemperature = if (temperature in MIN_TEMPERATURE..MAX_TEMPERATURE) temperature else null
+                val validHumidity = if (humidity in MIN_HUMIDITY..MAX_HUMIDITY) humidity else null
                 
                 Log.d(TAG, "CAEN qLOG - Temperature: $validTemperature °C, Humidity: $validHumidity %")
                 Pair(validTemperature, validHumidity)
