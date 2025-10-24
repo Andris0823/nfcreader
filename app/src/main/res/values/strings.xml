@@ -18,4 +18,5 @@
     <string name="humidity">Páratartalom</string>
     <string name="tag_detected_with_temp">NFC tag észlelve! Hőmérséklet: %.2f °C</string>
     <string name="tag_detected_with_sensors">CAEN qLOG észlelve! Hőmérséklet: %.2f °C, Páratartalom: %.1f %%</string>
+    <string name="tag_not_caen_qlog">Ez nem CAEN qLOG RT0013 tag, vagy nem tartalmaz érvényes szenzor adatokat</string>
 </resources>

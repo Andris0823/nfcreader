@@ -42,14 +42,12 @@ class NFCViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Új NFC tag hozzáadása az adatbázishoz.
      * A viewModelScope használatával automatikusan törölődik a coroutine, ha a ViewModel megszűnik.
-     * CAEN qLOG RT0013 támogatással (hőmérséklet és páratartalom).
+     * KIZÁRÓLAG CAEN qLOG RT0013 támogatással (hőmérséklet és páratartalom).
      */
-    fun addTag(tagId: String, rawData: String, decodedData: String, temperature: Double? = null, humidity: Double? = null) {
+    fun addTag(tagId: String, temperature: Double? = null, humidity: Double? = null) {
         viewModelScope.launch {
             val tag = NFCTag(
                 tagId = tagId,
-                rawData = rawData,
-                decodedData = decodedData,
                 temperature = temperature,
                 humidity = humidity
             )

@@ -123,15 +123,14 @@ class MainActivity : ComponentActivity() {
     
     /**
      * NFC tag olvasása és mentése az adatbázisba.
-     * CAEN qLOG RT0013 támogatással (hőmérséklet és páratartalom).
+     * KIZÁRÓLAG CAEN qLOG RT0013 támogatással (hőmérséklet és páratartalom).
      */
     private fun readTag(tag: Tag) {
         try {
-            val tagId = NFCReader.getTagId(tag)
-            val (hexData, decodedData, sensorData) = NFCReader.readTag(tag)
+            val (tagId, sensorData) = NFCReader.readTag(tag)
             
             // Tag mentése az adatbázisba a ViewModelen keresztül
-            viewModel.addTag(tagId, hexData, decodedData, sensorData.temperature, sensorData.humidity)
+            viewModel.addTag(tagId, sensorData.temperature, sensorData.humidity)
             
             val message = when {
                 sensorData.temperature != null && sensorData.humidity != null -> {
@@ -141,7 +140,7 @@ class MainActivity : ComponentActivity() {
                     getString(R.string.tag_detected_with_temp, sensorData.temperature)
                 }
                 else -> {
-                    getString(R.string.tag_detected)
+                    getString(R.string.tag_not_caen_qlog)
                 }
             }
             
