@@ -180,8 +180,15 @@ object NFCReader {
                 // A hőmérséklet értéke 0.0625 °C léptékű
                 val temperature = tempSigned * 0.0625
                 
-                Log.d(TAG, "NTAG Temperature read: $temperature °C")
-                temperature
+                // Validate temperature reading - return null if unrealistic
+                val validTemperature = if (temperature in MIN_TEMPERATURE..MAX_TEMPERATURE) {
+                    Log.d(TAG, "NTAG Temperature read: $temperature °C")
+                    temperature
+                } else {
+                    Log.w(TAG, "NTAG Temperature out of range: $temperature °C")
+                    null
+                }
+                validTemperature
             } else {
                 Log.w(TAG, "Temperature page data not available or invalid")
                 null
