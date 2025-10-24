@@ -14,4 +14,8 @@
     <string name="enable_nfc">NFC bekapcsolása</string>
     <string name="reading_tag">Tag olvasása...</string>
     <string name="error_reading_tag">Hiba a tag olvasása során</string>
+    <string name="temperature">Hőmérséklet</string>
+    <string name="humidity">Páratartalom</string>
+    <string name="tag_detected_with_temp">NFC tag észlelve! Hőmérséklet: %.2f °C</string>
+    <string name="tag_detected_with_sensors">CAEN qLOG észlelve! Hőmérséklet: %.2f °C, Páratartalom: %.1f %%</string>
 </resources>

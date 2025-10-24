@@ -10,6 +10,8 @@ import androidx.room.PrimaryKey
  * @property tagId Az NFC tagUID-je hexadecimális formátumban
  * @property rawData A nyers hexadecimális adat a tagről
  * @property decodedData UTF-8 dekódolt adat
+ * @property temperature Hőmérséklet adat (Celsius), ha elérhető (CAEN qLOG RT0013)
+ * @property humidity Páratartalom adat (%), ha elérhető (CAEN qLOG RT0013)
  * @property timestamp A beolvasás időpontja milliszekundumokban
  */
 @Entity(tableName = "nfc_tags")
@@ -19,5 +21,7 @@ data class NFCTag(
     val tagId: String,
     val rawData: String,
     val decodedData: String,
+    val temperature: Double? = null,
+    val humidity: Double? = null,
     val timestamp: Long = System.currentTimeMillis()
 )

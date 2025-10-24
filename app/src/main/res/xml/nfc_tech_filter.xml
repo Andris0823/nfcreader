@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- CAEN qLOG RT0013 támogatás (NfcV / ISO15693) -->
+    <tech-list>
+        <tech>android.nfc.tech.NfcV</tech>
+    </tech-list>
     <tech-list>
         <tech>android.nfc.tech.NfcA</tech>
         <tech>android.nfc.tech.MifareUltralight</tech>

@@ -4,12 +4,22 @@ import android.nfc.Tag
 import android.nfc.tech.MifareUltralight
 import android.nfc.tech.Ndef
 import android.nfc.tech.NfcA
+import android.nfc.tech.NfcV
 import android.util.Log
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 
 /**
+ * Szenzor adatok (hőmérséklet és páratartalom).
+ */
+data class SensorData(
+    val temperature: Double? = null,
+    val humidity: Double? = null
+)
+
+/**
  * NFC tag olvasásáért és dekódolásáért felelős utility osztály.
+ * Optimalizálva CAEN RFID qLOG RT0013 (NFC) támogatáshoz.
  */
 object NFCReader {
     
@@ -52,6 +62,123 @@ object NFCReader {
             payload.toByteArray()
         } catch (e: IOException) {
             Log.e(TAG, "Error reading Mifare Ultralight", e)
+            null
+        } finally {
+            try {
+                mifareUltralight.close()
+            } catch (e: IOException) {
+                Log.e(TAG, "Error closing Mifare Ultralight", e)
+            }
+        }
+    }
+    
+    /**
+     * Hőmérséklet és páratartalom leolvasása CAEN qLOG RT0013 tag-ről (NFC).
+     * Ez a tag ISO15693/NfcV protokollt használ.
+     * 
+     * @return Pair of (temperature in °C, humidity in %) or null values if not available
+     */
+    fun readCAENqLOGSensors(tag: Tag): Pair<Double?, Double?> {
+        val nfcV = NfcV.get(tag) ?: return Pair(null, null)
+        
+        return try {
+            nfcV.connect()
+            
+            // CAEN qLOG RT0013 specifikus memória címek
+            // A legutóbbi hőmérséklet és páratartalom adatok a 0x0A blokkban vannak
+            // Blokk 0x0A: 4 byte - első 2 byte: hőmérséklet, második 2 byte: páratartalom
+            
+            val blockAddress = 0x0A.toByte()
+            val cmd = byteArrayOf(
+                0x02, // Flags (Address flag set)
+                0x20, // Read single block command
+                blockAddress
+            )
+            
+            val response = nfcV.transceive(cmd)
+            
+            if (response != null && response.size >= 5) {
+                // Response format: [Status byte, 4 data bytes]
+                // Skip first byte (status), read next 4 bytes
+                
+                // Hőmérséklet: byte 1-2 (signed 16-bit, little-endian, 0.01°C felbontás)
+                val tempRaw = ((response[2].toInt() and 0xFF) shl 8) or 
+                              (response[1].toInt() and 0xFF)
+                val tempSigned = if (tempRaw and 0x8000 != 0) {
+                    tempRaw - 0x10000
+                } else {
+                    tempRaw
+                }
+                val temperature = tempSigned * 0.01
+                
+                // Páratartalom: byte 3-4 (unsigned 16-bit, little-endian, 0.01% felbontás)
+                val humidityRaw = ((response[4].toInt() and 0xFF) shl 8) or 
+                                  (response[3].toInt() and 0xFF)
+                val humidity = humidityRaw * 0.01
+                
+                Log.d(TAG, "CAEN qLOG - Temperature: $temperature °C, Humidity: $humidity %")
+                Pair(temperature, humidity)
+            } else {
+                Log.w(TAG, "CAEN qLOG response invalid or too short")
+                Pair(null, null)
+            }
+        } catch (e: IOException) {
+            Log.w(TAG, "Could not read CAEN qLOG sensors - tag may not be qLOG RT0013", e)
+            Pair(null, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading CAEN qLOG sensors", e)
+            Pair(null, null)
+        } finally {
+            try {
+                nfcV.close()
+            } catch (e: IOException) {
+                Log.e(TAG, "Error closing NfcV", e)
+            }
+        }
+    }
+    
+    /**
+     * Hőmérséklet leolvasása Mifare Ultralight tag-ről (NTAG21x T variánsok).
+     * A hőmérséklet adat általában a 0x29 (41) oldalon található.
+     * Fallback funkció, ha a tag nem CAEN qLOG.
+     * 
+     * @return Hőmérséklet Celsius fokban, vagy null ha nem érhető el
+     */
+    private fun readTemperatureNTAG(tag: Tag): Double? {
+        val mifareUltralight = MifareUltralight.get(tag) ?: return null
+        return try {
+            mifareUltralight.connect()
+            
+            // NTAG21x T típusú tagek esetén a hőmérséklet adat a 0x29 (41) oldalon van
+            // A formátum: 2 byte előjeles integer (big-endian)
+            val temperaturePage = mifareUltralight.readPages(0x29)
+            
+            if (temperaturePage != null && temperaturePage.size >= 2) {
+                // Az első két byte tartalmazza a hőmérséklet adatot
+                val tempRaw = ((temperaturePage[0].toInt() and 0xFF) shl 8) or 
+                              (temperaturePage[1].toInt() and 0xFF)
+                
+                // Konvertálás előjeles értékké
+                val tempSigned = if (tempRaw and 0x8000 != 0) {
+                    tempRaw - 0x10000
+                } else {
+                    tempRaw
+                }
+                
+                // A hőmérséklet értéke 0.0625 °C léptékű
+                val temperature = tempSigned * 0.0625
+                
+                Log.d(TAG, "NTAG Temperature read: $temperature °C")
+                temperature
+            } else {
+                Log.w(TAG, "Temperature page data not available or invalid")
+                null
+            }
+        } catch (e: IOException) {
+            Log.w(TAG, "Could not read NTAG temperature", e)
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading NTAG temperature", e)
             null
         } finally {
             try {
@@ -144,8 +271,10 @@ object NFCReader {
     
     /**
      * NFC tag teljes olvasása, több technológia kipróbálásával.
+     * Optimalizálva CAEN qLOG RT0013 támogatáshoz.
+     * Visszaadja a hex adatot, dekódolt adatot és a szenzor adatokat (ha elérhetőek).
      */
-    fun readTag(tag: Tag): Pair<String, String> {
+    fun readTag(tag: Tag): Triple<String, String, SensorData> {
         // Először próbáljuk a Mifare Ultralight-ot
         val data = readMifareUltralight(tag) 
             ?: readNdef(tag) 
@@ -155,6 +284,17 @@ object NFCReader {
         val hexData = data.toHexString()
         val decodedData = decodeHexToUtf8(hexData)
         
-        return Pair(hexData, decodedData)
+        // Szenzor adatok olvasása - először CAEN qLOG RT0013-t próbáljuk (prioritás)
+        val (temperature, humidity) = readCAENqLOGSensors(tag)
+        
+        // Ha nem sikerült CAEN qLOG-ként olvasni, próbáljuk NTAG T-ként
+        val finalTemperature = temperature ?: readTemperatureNTAG(tag)
+        
+        val sensorData = SensorData(
+            temperature = finalTemperature,
+            humidity = humidity
+        )
+        
+        return Triple(hexData, decodedData, sensorData)
     }
 }

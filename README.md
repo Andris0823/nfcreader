@@ -7,8 +7,10 @@ Ez egy professzionális NFC tag (Mifare Ultralight) olvasó alkalmazás Android 
 ## ✨ Főbb Funkciók
 
 - **NFC Tag Olvasás**: Mifare Ultralight és más NFC tagek beolvasása
+- **CAEN qLOG RT0013 Támogatás**: Optimalizált hőmérséklet és páratartalom szenzor olvasás
+- **Hőmérséklet és Páratartalom**: Valós idejű környezeti adatok megjelenítése
 - **Hex → UTF-8 Dekódolás**: Automatikus adatkonverzió hexadecimális formátumból UTF-8 szöveggé
-- **Adatbázis Tárolás**: Beolvasott tagek perzisztens tárolása Room adatbázisban
+- **Adatbázis Tárolás**: Beolvasott tagek perzisztens tárolása Room adatbázisban szenzor adatokkal
 - **Modern UI**: Jetpack Compose alapú, Material Design 3 felhasználói felület
 - **MVVM Architektúra**: Tiszta kódszervezés és szeparált felelősségi körök
 
@@ -24,6 +26,8 @@ Ez a réteg felelős az adatok tárolásáért és kezeléséért.
   - `tagId`: Az NFC tag UID-je hexadecimális formátumban
   - `rawData`: Nyers hexadecimális adat
   - `decodedData`: UTF-8 dekódolt szöveg
+  - `temperature`: Hőmérséklet adat (Celsius), ha elérhető (CAEN qLOG RT0013)
+  - `humidity`: Páratartalom adat (%), ha elérhető (CAEN qLOG RT0013)
   - `timestamp`: Beolvasás időpontja
 
 - **DAO (`NFCTagDao.kt`)**: Data Access Object - adatbázis műveletek definiálása
@@ -49,10 +53,13 @@ Ez a réteg tartalmazza az üzleti logikát és az adatok feldolgozását.
   - Repository műveletek koordinálása
 
 - **NFCReader (`NFCReader.kt`)**: NFC tag olvasási és dekódolási logika
-  - Mifare Ultralight specifikus olvasás
+  - **CAEN qLOG RT0013 optimalizált olvasás** (NfcV/ISO15693 protokoll)
+  - Hőmérséklet és páratartalom szenzor támogatás
+  - Mifare Ultralight specifikus olvasás (fallback)
+  - NTAG21x T hőmérséklet szenzor támogatás (fallback)
   - NDEF formátum támogatás
   - Hex → UTF-8 dekódolás
-  - Többféle NFC technológia támogatása
+  - Többféle NFC technológia támogatása (NfcV, NfcA, MifareUltralight)
 
 ### 3. **Presentation Layer (Megjelenítési Réteg)**
 Ez a réteg felelős a felhasználói felületért.
@@ -196,7 +203,34 @@ nfcreader/
 2. **NFC engedélyezés**: Győződj meg róla, hogy az NFC be van kapcsolva az eszközön
 3. **Tag olvasás**: Érintsd a telefon hátlapját egy NFC taghez
 4. **Adat megjelenítés**: A beolvasott adat azonnal megjelenik a listában
-5. **Törlés**: Törölhetsz egyedi tageket vagy az összes tárolt adatot
+5. **Hőmérséklet**: Ha a tag támogatja (NTAG21x T variánsok), a hőmérséklet is megjelenik
+6. **Törlés**: Törölhetsz egyedi tageket vagy az összes tárolt adatot
+
+### CAEN qLOG RT0013 Szenzor Támogatás
+
+Az alkalmazás **elsődlegesen a CAEN RFID qLOG RT0013 NFC hőmérséklet és páratartalom logger-re van optimalizálva**:
+
+#### CAEN qLOG RT0013 Specifikációk
+- **Protokoll**: ISO15693 / NfcV (NFC)
+- **Szenzorok**: Hőmérséklet + Páratartalom
+- **Mérési tartomány**: 
+  - Hőmérséklet: -40°C - +85°C
+  - Páratartalom: 0% - 100% RH
+- **Pontosság**: 
+  - Hőmérséklet: ±0.3°C (tipikus)
+  - Páratartalom: ±2% RH
+- **Felbontás**: 0.01°C / 0.01% RH
+- **Memória cím**: Blokk 0x0A (legutóbbi mérés)
+- **Megjelenítés**: Hőmérséklet (🌡️) és páratartalom (💧) automatikusan megjelenik
+
+#### Fallback Támogatás (NTAG21x T)
+Ha a tag nem CAEN qLOG RT0013, az alkalmazás automatikusan megpróbálja NTAG21x T-ként olvasni:
+- **Támogatott tagek**: NTAG210μ, NTAG213 TT, NTAG215 TT
+- **Mérési tartomány**: -25°C - +70°C
+- **Pontosság**: ±2°C
+- **Memória cím**: 0x29 (41) oldal
+
+Az alkalmazás automatikusan felismeri a tag típusát és a megfelelő olvasási módszert alkalmazza.
 
 ## 💡 Fejlesztési Tippek és Tanácsok
 
