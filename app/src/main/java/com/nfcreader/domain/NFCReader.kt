@@ -102,8 +102,8 @@ object NFCReader {
                 // Skip first byte (status), read next 4 bytes
                 
                 // Hőmérséklet: byte 1-2 (signed 16-bit, little-endian, 0.01°C felbontás)
-                val tempRaw = ((response[2].toInt() and 0xFF) shl 8) or 
-                              (response[1].toInt() and 0xFF)
+                val tempRaw = (response[1].toInt() and 0xFF) or 
+                              ((response[2].toInt() and 0xFF) shl 8)
                 val tempSigned = if (tempRaw and 0x8000 != 0) {
                     tempRaw - 0x10000
                 } else {
@@ -112,12 +112,18 @@ object NFCReader {
                 val temperature = tempSigned * 0.01
                 
                 // Páratartalom: byte 3-4 (unsigned 16-bit, little-endian, 0.01% felbontás)
-                val humidityRaw = ((response[4].toInt() and 0xFF) shl 8) or 
-                                  (response[3].toInt() and 0xFF)
+                val humidityRaw = (response[3].toInt() and 0xFF) or 
+                                  ((response[4].toInt() and 0xFF) shl 8)
                 val humidity = humidityRaw * 0.01
                 
-                Log.d(TAG, "CAEN qLOG - Temperature: $temperature °C, Humidity: $humidity %")
-                Pair(temperature, humidity)
+                // Validate sensor readings - return null if values are unrealistic
+                // Temperature should be between -40°C and +85°C (sensor spec)
+                // Humidity should be between 0% and 100%
+                val validTemperature = if (temperature in -40.0..85.0) temperature else null
+                val validHumidity = if (humidity in 0.0..100.0) humidity else null
+                
+                Log.d(TAG, "CAEN qLOG - Temperature: $validTemperature °C, Humidity: $validHumidity %")
+                Pair(validTemperature, validHumidity)
             } else {
                 Log.w(TAG, "CAEN qLOG response invalid or too short")
                 Pair(null, null)

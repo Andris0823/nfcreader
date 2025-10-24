@@ -249,24 +249,6 @@ fun TagCard(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Hex adat
-            DataSection(
-                label = stringResource(R.string.tag_data) + " (HEX)",
-                data = tag.rawData,
-                backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
-                textColor = MaterialTheme.colorScheme.onSecondaryContainer
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Dekódolt adat
-            DataSection(
-                label = stringResource(R.string.tag_data) + " (UTF-8)",
-                data = tag.decodedData.ifEmpty { "N/A" },
-                backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
-                textColor = MaterialTheme.colorScheme.onTertiaryContainer
-            )
-            
             // Hőmérséklet adat (ha elérhető)
             tag.temperature?.let { temp ->
                 Spacer(modifier = Modifier.height(8.dp))
