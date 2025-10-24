@@ -7,11 +7,12 @@ import androidx.room.RoomDatabase
 
 /**
  * Room adatbázis az NFC tagek tárolására.
+ * KIZÁRÓLAG CAEN qLOG RT0013 támogatással.
  * Singleton pattern használatával biztosítjuk, hogy csak egy példány létezzen.
  */
 @Database(
     entities = [NFCTag::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class NFCDatabase : RoomDatabase() {

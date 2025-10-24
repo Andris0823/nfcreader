@@ -5,11 +5,10 @@ import androidx.room.PrimaryKey
 
 /**
  * NFC Tag entitás az adatbázisban.
+ * KIZÁRÓLAG CAEN qLOG RT0013 támogatással.
  * 
  * @property id Automatikusan generált egyedi azonosító
- * @property tagId Az NFC tagUID-je hexadecimális formátumban
- * @property rawData A nyers hexadecimális adat a tagről
- * @property decodedData UTF-8 dekódolt adat
+ * @property tagId Az NFC tag UID-je hexadecimális formátumban
  * @property temperature Hőmérséklet adat (Celsius), ha elérhető (CAEN qLOG RT0013)
  * @property humidity Páratartalom adat (%), ha elérhető (CAEN qLOG RT0013)
  * @property timestamp A beolvasás időpontja milliszekundumokban
@@ -19,8 +18,6 @@ data class NFCTag(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val tagId: String,
-    val rawData: String,
-    val decodedData: String,
     val temperature: Double? = null,
     val humidity: Double? = null,
     val timestamp: Long = System.currentTimeMillis()
