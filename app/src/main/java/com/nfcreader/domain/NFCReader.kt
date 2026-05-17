@@ -24,6 +24,21 @@ data class SensorData(
 object NFCReader {
     
     private const val TAG = "NFCReader"
+    private const val CAEN_LAST_SAMPLE_BLOCK: Byte = 0x31
+    private const val FIXED_POINT_SCALE = 32
+    private const val FIXED_POINT_MULTIPLIER = 1.0 / FIXED_POINT_SCALE
+    private const val STATUS_ERROR_MASK = 0x01
+    private const val INVALID_SAMPLE = 0xFFFF
+    // 70°C in fixed-point format (70 * 32 = 2240)
+    private const val TEMP_MAX_RAW = 70 * FIXED_POINT_SCALE
+    // -30°C in fixed-point (8192 + (-30 * 32)) = 7232.
+    private const val TEMP_NEGATIVE_RAW_START = 7232
+    // RT0013 uses a +8192 offset for negative temperatures in fixed-point encoding.
+    private const val TEMP_NEGATIVE_OFFSET = 8192
+    // 100% in fixed-point format (100 * 32 = 3200)
+    private const val HUMIDITY_MAX_RAW = 100 * FIXED_POINT_SCALE
+    private const val MAX_TEMPERATURE = 70.0
+    private const val MAX_HUMIDITY = 100.0
     
     /**
      * NFC tag UID-jének kiolvasása hexadecimális formátumban.
@@ -84,40 +99,40 @@ object NFCReader {
         return try {
             nfcV.connect()
             
-            // CAEN qLOG RT0013 specifikus memória címek
-            // A legutóbbi hőmérséklet és páratartalom adatok a 0x0A blokkban vannak
-            // Blokk 0x0A: 4 byte - első 2 byte: hőmérséklet, második 2 byte: páratartalom
-            
-            val blockAddress = 0x0A.toByte()
-            val cmd = byteArrayOf(
-                0x02, // Flags (Address flag set)
-                0x20, // Read single block command
-                blockAddress
-            )
+        // CAEN qLOG RT0013 specifikus memória címek
+        // A legutóbbi hőmérséklet és páratartalom adatok a 0x31 blokkban vannak
+        // (0x62/0x63 word címek), 4 byte - első 2 byte: hőmérséklet, második 2 byte: páratartalom
+        
+        val blockAddress = CAEN_LAST_SAMPLE_BLOCK
+        val cmd = byteArrayOf(
+            0x02, // Flags (Address flag set)
+            0x20, // Read single block command
+            blockAddress
+        )
             
             val response = nfcV.transceive(cmd)
             
-            if (response != null && response.size >= 5) {
-                // Response format: [Status byte, 4 data bytes]
-                // Skip first byte (status), read next 4 bytes
-                
-                // Hőmérséklet: byte 1-2 (signed 16-bit, little-endian, 0.01°C felbontás)
-                val tempRaw = ((response[2].toInt() and 0xFF) shl 8) or 
-                              (response[1].toInt() and 0xFF)
-                val tempSigned = if (tempRaw and 0x8000 != 0) {
-                    tempRaw - 0x10000
-                } else {
-                    tempRaw
-                }
-                val temperature = tempSigned * 0.01
-                
-                // Páratartalom: byte 3-4 (unsigned 16-bit, little-endian, 0.01% felbontás)
-                val humidityRaw = ((response[4].toInt() and 0xFF) shl 8) or 
-                                  (response[3].toInt() and 0xFF)
-                val humidity = humidityRaw * 0.01
-                
-                Log.d(TAG, "CAEN qLOG - Temperature: $temperature °C, Humidity: $humidity %")
-                Pair(temperature, humidity)
+        if (response != null && response.size >= 5) {
+            // ISO15693 response flags: error is indicated by bit 0.
+            if ((response[0].toInt() and STATUS_ERROR_MASK) != 0) {
+                Log.w(TAG, "CAEN qLOG response error: ${response[0]}")
+                return Pair(null, null)
+            }
+            // Response format: [Status byte, 4 data bytes]
+            // Skip first byte (status), read next 4 bytes
+            
+            // Hőmérséklet: byte 1-2 (16-bit, big-endian, fixpontos 1/32°C)
+            val tempRaw = ((response[1].toInt() and 0xFF) shl 8) or
+                          (response[2].toInt() and 0xFF)
+            val temperature = decodeTemperature(tempRaw)
+            
+            // Páratartalom: byte 3-4 (16-bit, big-endian, fixpontos 1/32%)
+            val humidityRaw = ((response[3].toInt() and 0xFF) shl 8) or
+                              (response[4].toInt() and 0xFF)
+            val humidity = decodeHumidity(humidityRaw)
+            
+            Log.d(TAG, "CAEN qLOG - Temperature: $temperature °C, Humidity: $humidity %")
+            Pair(temperature, humidity)
             } else {
                 Log.w(TAG, "CAEN qLOG response invalid or too short")
                 Pair(null, null)
@@ -135,6 +150,37 @@ object NFCReader {
                 Log.e(TAG, "Error closing NfcV", e)
             }
         }
+    }
+
+    private fun decodeTemperature(rawValue: Int): Double? {
+        if (rawValue == INVALID_SAMPLE) {
+            return null
+        }
+        // RT0013 reference implementation clamps values above the maximum to the max range.
+        val value = when {
+            rawValue in 0..TEMP_MAX_RAW -> rawValue * FIXED_POINT_MULTIPLIER
+            // Values between max and negative-encoding start are reserved in RT0013 and clamped to max per reference.
+            rawValue in (TEMP_MAX_RAW + 1) until TEMP_NEGATIVE_RAW_START -> MAX_TEMPERATURE
+            // Negative values are encoded as (8192 + value * 32), yielding raw 7232..8191 (-30°C to just below 0°C).
+            rawValue in TEMP_NEGATIVE_RAW_START until TEMP_NEGATIVE_OFFSET -> (rawValue - TEMP_NEGATIVE_OFFSET) * FIXED_POINT_MULTIPLIER
+            // Values above TEMP_NEGATIVE_OFFSET are invalid/out of range.
+            else -> null
+        }
+        return value
+    }
+
+    private fun decodeHumidity(rawValue: Int): Double? {
+        if (rawValue == INVALID_SAMPLE) {
+            return null
+        }
+        // RT0013 reference implementation clamps values above the maximum to the max range.
+        val value = when {
+            rawValue in 0..HUMIDITY_MAX_RAW -> rawValue * FIXED_POINT_MULTIPLIER
+            rawValue > HUMIDITY_MAX_RAW -> MAX_HUMIDITY
+            // Any other raw value is treated as invalid.
+            else -> null
+        }
+        return value
     }
     
     /**

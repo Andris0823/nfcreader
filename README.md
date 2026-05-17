@@ -214,13 +214,13 @@ Az alkalmazás **elsődlegesen a CAEN RFID qLOG RT0013 NFC hőmérséklet és p�
 - **Protokoll**: ISO15693 / NfcV (NFC)
 - **Szenzorok**: Hőmérséklet + Páratartalom
 - **Mérési tartomány**: 
-  - Hőmérséklet: -40°C - +85°C
+  - Hőmérséklet: -30°C - +70°C
   - Páratartalom: 0% - 100% RH
 - **Pontosság**: 
   - Hőmérséklet: ±0.3°C (tipikus)
   - Páratartalom: ±2% RH
-- **Felbontás**: 0.01°C / 0.01% RH
-- **Memória cím**: Blokk 0x0A (legutóbbi mérés)
+- **Felbontás**: 0.03125°C / 0.03125% RH (fixpontos 1/32)
+- **Memória cím**: Blokk 0x31 (0x62/0x63 word címek, legutóbbi mérés)
 - **Megjelenítés**: Hőmérséklet (🌡️) és páratartalom (💧) automatikusan megjelenik
 
 #### Fallback Támogatás (NTAG21x T)
