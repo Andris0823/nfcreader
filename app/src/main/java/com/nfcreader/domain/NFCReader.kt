@@ -25,18 +25,18 @@ object NFCReader {
     
     private const val TAG = "NFCReader"
     private const val CAEN_LAST_SAMPLE_BLOCK: Byte = 0x31
-    // Double to ensure floating-point division for fixed-point decoding.
-    private const val FIXED_POINT_SCALE = 32.0
+    private const val FIXED_POINT_SCALE = 32
+    private const val FIXED_POINT_MULTIPLIER = 1.0 / FIXED_POINT_SCALE
     private const val STATUS_ERROR_MASK = 0x01
     private const val INVALID_SAMPLE = 0xFFFF
     // 70°C in fixed-point format (70 * 32 = 2240)
-    private const val TEMP_MAX_RAW = 70 * 32
+    private const val TEMP_MAX_RAW = 70 * FIXED_POINT_SCALE
     // -30°C encoded as 8192 - 960 = 7232 in RT0013 fixed-point.
     private const val TEMP_NEGATIVE_RAW_START = 7232
     // RT0013 uses a +8192 offset for negative temperatures in fixed-point encoding.
     private const val TEMP_NEGATIVE_OFFSET = 8192
     // 100% in fixed-point format (100 * 32 = 3200)
-    private const val HUMIDITY_MAX_RAW = 100 * 32
+    private const val HUMIDITY_MAX_RAW = 100 * FIXED_POINT_SCALE
     private const val MAX_TEMPERATURE = 70.0
     private const val MAX_HUMIDITY = 100.0
     
@@ -158,11 +158,11 @@ object NFCReader {
         }
         // RT0013 reference implementation clamps values above the maximum to the max range.
         val value = when {
-            rawValue in 0..TEMP_MAX_RAW -> rawValue / FIXED_POINT_SCALE
+            rawValue in 0..TEMP_MAX_RAW -> rawValue * FIXED_POINT_MULTIPLIER
             // Values between max and negative-encoding start are clamped to max per RT0013 reference.
             rawValue in (TEMP_MAX_RAW + 1) until TEMP_NEGATIVE_RAW_START -> MAX_TEMPERATURE
             // Negative values are encoded as (8192 + value * 32), yielding raw 7232..8191 (-30°C to just below 0°C).
-            rawValue in TEMP_NEGATIVE_RAW_START until TEMP_NEGATIVE_OFFSET -> (rawValue - TEMP_NEGATIVE_OFFSET) / FIXED_POINT_SCALE
+            rawValue in TEMP_NEGATIVE_RAW_START until TEMP_NEGATIVE_OFFSET -> (rawValue - TEMP_NEGATIVE_OFFSET) * FIXED_POINT_MULTIPLIER
             // Values above TEMP_NEGATIVE_OFFSET are invalid/out of range.
             else -> null
         }
@@ -175,7 +175,7 @@ object NFCReader {
         }
         // RT0013 reference implementation clamps values above the maximum to the max range.
         val value = when {
-            rawValue in 0..HUMIDITY_MAX_RAW -> rawValue / FIXED_POINT_SCALE
+            rawValue in 0..HUMIDITY_MAX_RAW -> rawValue * FIXED_POINT_MULTIPLIER
             rawValue > HUMIDITY_MAX_RAW -> MAX_HUMIDITY
             // Any other raw value is treated as invalid.
             else -> null
