@@ -15,19 +15,19 @@ Ez az NFC Reader alkalmazás **elsődlegesen a CAEN RFID qLOG RT0013** NFC hőm�
 
 ### Szenzorok
 1. **Hőmérséklet Szenzor**
-   - Tartomány: -40°C - +85°C
+   - Tartomány: -30°C - +70°C
    - Pontosság: ±0.3°C (0°C - 60°C), ±0.5°C (egyéb tartomány)
-   - Felbontás: 0.01°C
+   - Felbontás: 0.03125°C (fixpontos 1/32)
 
 2. **Páratartalom Szenzor**
    - Tartomány: 0% - 100% RH
    - Pontosság: ±2% RH (10% - 90% RH)
-   - Felbontás: 0.01% RH
+   - Felbontás: 0.03125% RH (fixpontos 1/32)
 
 ### Memória Struktúra
-- **Blokk 0x0A**: Legutóbbi mérési adatok
-  - Byte 0-1: Hőmérséklet (16-bit signed, little-endian)
-  - Byte 2-3: Páratartalom (16-bit unsigned, little-endian)
+- **Blokk 0x31**: Legutóbbi mérési adatok (0x62/0x63 word címek)
+  - Byte 0-1: Hőmérséklet (16-bit, big-endian, fixpontos 1/32°C)
+  - Byte 2-3: Páratartalom (16-bit, big-endian, fixpontos 1/32%)
 - **Egyéb blokkok**: Logging történet (nem implementálva ebben a verzióban)
 
 ## 🔧 Implementáció Részletei
@@ -48,7 +48,7 @@ val nfcV = NfcV.get(tag)
 val cmd = byteArrayOf(
     0x02,              // Flags (Address flag set)
     0x20,              // Read single block command
-    0x0A.toByte()      // Block address (0x0A = latest readings)
+    0x31.toByte()      // Block address (0x31 = latest readings)
 )
 
 val response = nfcV.transceive(cmd)
@@ -58,23 +58,18 @@ val response = nfcV.transceive(cmd)
 ```kotlin
 // Response: [Status byte, 4 data bytes]
 // Byte 0: Status (sikeres = 0x00)
-// Byte 1-2: Hőmérséklet (little-endian)
-// Byte 3-4: Páratartalom (little-endian)
+// Byte 1-2: Hőmérséklet (big-endian, fixpontos 1/32)
+// Byte 3-4: Páratartalom (big-endian, fixpontos 1/32)
 
-// Hőmérséklet konverzió
-val tempRaw = ((response[2].toInt() and 0xFF) shl 8) or 
-              (response[1].toInt() and 0xFF)
-val tempSigned = if (tempRaw and 0x8000 != 0) {
-    tempRaw - 0x10000
-} else {
-    tempRaw
-}
-val temperature = tempSigned * 0.01  // °C
+// Hőmérséklet konverzió (fixpontos 1/32, negatív értékek 8192 offsettel)
+val tempRaw = ((response[1].toInt() and 0xFF) shl 8) or
+              (response[2].toInt() and 0xFF)
+val temperature = decodeTemperature(tempRaw)
 
-// Páratartalom konverzió
-val humidityRaw = ((response[4].toInt() and 0xFF) shl 8) or 
-                  (response[3].toInt() and 0xFF)
-val humidity = humidityRaw * 0.01  // %
+// Páratartalom konverzió (fixpontos 1/32)
+val humidityRaw = ((response[3].toInt() and 0xFF) shl 8) or
+                  (response[4].toInt() and 0xFF)
+val humidity = decodeHumidity(humidityRaw)
 ```
 
 ### Detekciós Logika
@@ -101,21 +96,20 @@ fun readCAENqLOGSensors(tag: Tag): Pair<Double?, Double?> {
     return try {
         nfcV.connect()
         
-        val blockAddress = 0x0A.toByte()
+        val blockAddress = 0x31.toByte()
         val cmd = byteArrayOf(0x02, 0x20, blockAddress)
         val response = nfcV.transceive(cmd)
         
         if (response != null && response.size >= 5) {
             // Hőmérséklet
-            val tempRaw = ((response[2].toInt() and 0xFF) shl 8) or 
-                          (response[1].toInt() and 0xFF)
-            val temperature = (if (tempRaw and 0x8000 != 0) 
-                tempRaw - 0x10000 else tempRaw) * 0.01
+            val tempRaw = ((response[1].toInt() and 0xFF) shl 8) or
+                          (response[2].toInt() and 0xFF)
+            val temperature = decodeTemperature(tempRaw)
             
             // Páratartalom
-            val humidityRaw = ((response[4].toInt() and 0xFF) shl 8) or 
-                              (response[3].toInt() and 0xFF)
-            val humidity = humidityRaw * 0.01
+            val humidityRaw = ((response[3].toInt() and 0xFF) shl 8) or
+                              (response[4].toInt() and 0xFF)
+            val humidity = decodeHumidity(humidityRaw)
             
             Pair(temperature, humidity)
         } else {

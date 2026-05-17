@@ -24,6 +24,18 @@ data class SensorData(
 object NFCReader {
     
     private const val TAG = "NFCReader"
+    private const val CAEN_LAST_SAMPLE_BLOCK: Byte = 0x31
+    private const val FIXED_POINT_SCALE = 32.0
+    private const val STATUS_ERROR_MASK = 0x01
+    private const val INVALID_SAMPLE = 0xFFFF
+    private const val TEMP_MAX_RAW = 70 * 32
+    private const val TEMP_NEGATIVE_MIN_RAW = 7232
+    private const val TEMP_NEGATIVE_OFFSET = 8192
+    private const val HUMIDITY_MAX_RAW = 100 * 32
+    private const val MIN_TEMPERATURE = -30.0
+    private const val MAX_TEMPERATURE = 70.0
+    private const val MIN_HUMIDITY = 0.0
+    private const val MAX_HUMIDITY = 100.0
     
     /**
      * NFC tag UID-jének kiolvasása hexadecimális formátumban.
@@ -84,40 +96,39 @@ object NFCReader {
         return try {
             nfcV.connect()
             
-            // CAEN qLOG RT0013 specifikus memória címek
-            // A legutóbbi hőmérséklet és páratartalom adatok a 0x0A blokkban vannak
-            // Blokk 0x0A: 4 byte - első 2 byte: hőmérséklet, második 2 byte: páratartalom
-            
-            val blockAddress = 0x0A.toByte()
-            val cmd = byteArrayOf(
-                0x02, // Flags (Address flag set)
-                0x20, // Read single block command
-                blockAddress
-            )
+        // CAEN qLOG RT0013 specifikus memória címek
+        // A legutóbbi hőmérséklet és páratartalom adatok a 0x31 blokkban vannak
+        // (0x62/0x63 word címek), 4 byte - első 2 byte: hőmérséklet, második 2 byte: páratartalom
+        
+        val blockAddress = CAEN_LAST_SAMPLE_BLOCK
+        val cmd = byteArrayOf(
+            0x02, // Flags (Address flag set)
+            0x20, // Read single block command
+            blockAddress
+        )
             
             val response = nfcV.transceive(cmd)
             
-            if (response != null && response.size >= 5) {
-                // Response format: [Status byte, 4 data bytes]
-                // Skip first byte (status), read next 4 bytes
-                
-                // Hőmérséklet: byte 1-2 (signed 16-bit, little-endian, 0.01°C felbontás)
-                val tempRaw = ((response[2].toInt() and 0xFF) shl 8) or 
-                              (response[1].toInt() and 0xFF)
-                val tempSigned = if (tempRaw and 0x8000 != 0) {
-                    tempRaw - 0x10000
-                } else {
-                    tempRaw
-                }
-                val temperature = tempSigned * 0.01
-                
-                // Páratartalom: byte 3-4 (unsigned 16-bit, little-endian, 0.01% felbontás)
-                val humidityRaw = ((response[4].toInt() and 0xFF) shl 8) or 
-                                  (response[3].toInt() and 0xFF)
-                val humidity = humidityRaw * 0.01
-                
-                Log.d(TAG, "CAEN qLOG - Temperature: $temperature °C, Humidity: $humidity %")
-                Pair(temperature, humidity)
+        if (response != null && response.size >= 5) {
+            if (response[0].toInt() and STATUS_ERROR_MASK != 0) {
+                Log.w(TAG, "CAEN qLOG response error: ${response[0]}")
+                return Pair(null, null)
+            }
+            // Response format: [Status byte, 4 data bytes]
+            // Skip first byte (status), read next 4 bytes
+            
+            // Hőmérséklet: byte 1-2 (16-bit, big-endian, fixpontos 1/32°C)
+            val tempRaw = ((response[1].toInt() and 0xFF) shl 8) or
+                          (response[2].toInt() and 0xFF)
+            val temperature = decodeTemperature(tempRaw)
+            
+            // Páratartalom: byte 3-4 (16-bit, big-endian, fixpontos 1/32%)
+            val humidityRaw = ((response[3].toInt() and 0xFF) shl 8) or
+                              (response[4].toInt() and 0xFF)
+            val humidity = decodeHumidity(humidityRaw)
+            
+            Log.d(TAG, "CAEN qLOG - Temperature: $temperature °C, Humidity: $humidity %")
+            Pair(temperature, humidity)
             } else {
                 Log.w(TAG, "CAEN qLOG response invalid or too short")
                 Pair(null, null)
@@ -135,6 +146,31 @@ object NFCReader {
                 Log.e(TAG, "Error closing NfcV", e)
             }
         }
+    }
+
+    private fun decodeTemperature(rawValue: Int): Double? {
+        if (rawValue == INVALID_SAMPLE) {
+            return null
+        }
+        val value = when {
+            rawValue in 0..TEMP_MAX_RAW -> rawValue / FIXED_POINT_SCALE
+            rawValue in (TEMP_MAX_RAW + 1) until TEMP_NEGATIVE_MIN_RAW -> MAX_TEMPERATURE
+            rawValue in TEMP_NEGATIVE_MIN_RAW until TEMP_NEGATIVE_OFFSET -> (rawValue - TEMP_NEGATIVE_OFFSET) / FIXED_POINT_SCALE
+            else -> null
+        }
+        return value?.takeIf { it in MIN_TEMPERATURE..MAX_TEMPERATURE }
+    }
+
+    private fun decodeHumidity(rawValue: Int): Double? {
+        if (rawValue == INVALID_SAMPLE) {
+            return null
+        }
+        val value = when {
+            rawValue in 0..HUMIDITY_MAX_RAW -> rawValue / FIXED_POINT_SCALE
+            rawValue > HUMIDITY_MAX_RAW -> MAX_HUMIDITY
+            else -> null
+        }
+        return value?.takeIf { it in MIN_HUMIDITY..MAX_HUMIDITY }
     }
     
     /**
