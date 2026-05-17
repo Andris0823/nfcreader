@@ -30,7 +30,7 @@ object NFCReader {
     private const val INVALID_SAMPLE = 0xFFFF
     // 70°C in fixed-point format (70 * 32 = 2240)
     private const val TEMP_MAX_RAW = 70 * 32
-    // -30°C encoded as (-30 * 32) + 8192 -> 7232
+    // -30°C encoded as (8192 + (-30 * 32)) -> 7232 in RT0013 fixed-point.
     private const val TEMP_NEGATIVE_RAW_START = 7232
     // RT0013 uses a +8192 offset for negative temperatures in fixed-point encoding.
     private const val TEMP_NEGATIVE_OFFSET = 8192
@@ -112,6 +112,7 @@ object NFCReader {
             val response = nfcV.transceive(cmd)
             
         if (response != null && response.size >= 5) {
+            // ISO15693 response flags: error is indicated by bit 0.
             if ((response[0].toInt() and STATUS_ERROR_MASK) != 0) {
                 Log.w(TAG, "CAEN qLOG response error: ${response[0]}")
                 return Pair(null, null)
@@ -159,6 +160,7 @@ object NFCReader {
             rawValue in 0..TEMP_MAX_RAW -> rawValue / FIXED_POINT_SCALE
             // Values between max and negative-encoding start are clamped to max per RT0013 reference.
             rawValue in (TEMP_MAX_RAW + 1) until TEMP_NEGATIVE_RAW_START -> MAX_TEMPERATURE
+            // Negative values are encoded as (8192 + value * 32), yielding raw 7232..8191.
             rawValue in TEMP_NEGATIVE_RAW_START until TEMP_NEGATIVE_OFFSET -> (rawValue - TEMP_NEGATIVE_OFFSET) / FIXED_POINT_SCALE
             // Values above TEMP_NEGATIVE_OFFSET are invalid/out of range.
             else -> null
