@@ -26,6 +26,22 @@ object NFCReader {
     private const val FIXED_POINT_SCALE = 32.0
 
     /**
+     * Kiterjesztett függvény a ByteArray konvertálására hexadecimális String-re.
+     * Publikussá tesszük, hogy a getTagId is gond nélkül elérhesse.
+     */
+    fun ByteArray.toHexString(): String {
+        return joinToString("") { String.format("%02X", it) }
+    }
+
+    /**
+     * ÚJ FÜGGVÉNY: Az NFC tag egyedi azonosítójának (UID) lekérése Hex string formátumban.
+     * Ez javítja ki a MainActivity-ben (130. sor) lévő hibát!
+     */
+    fun getTagId(tag: Tag): String {
+        return tag.id.toHexString()
+    }
+
+    /**
      * NFC tag teljes olvasása, több technológia kipróbálásával.
      * Optimalizálva CAEN qLOG RT0013 támogatáshoz.
      */
@@ -159,10 +175,6 @@ object NFCReader {
         } finally {
             try { nfcA.close() } catch (e: Exception) {}
         }
-    }
-
-    private fun ByteArray.toHexString(): String {
-        return joinToString("") { String.format("%02X", it) }
     }
 
     private fun decodeHexToUtf8(hexString: String): String {
