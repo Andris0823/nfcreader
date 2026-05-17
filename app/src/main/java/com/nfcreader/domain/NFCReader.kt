@@ -29,8 +29,9 @@ object NFCReader {
     private const val STATUS_ERROR_MASK = 0x01
     private const val INVALID_SAMPLE = 0xFFFF
     private const val TEMP_MAX_RAW = 70 * 32
-    // -30°C encoded as (value * 32) + 8192 -> 7232
+    // -30°C encoded as (-30 * 32) + 8192 -> 7232
     private const val TEMP_NEGATIVE_RAW_START = 7232
+    // RT0013 uses a +8192 offset for negative temperatures in fixed-point encoding.
     private const val TEMP_NEGATIVE_OFFSET = 8192
     private const val HUMIDITY_MAX_RAW = 100 * 32
     private const val MAX_TEMPERATURE = 70.0
@@ -109,7 +110,7 @@ object NFCReader {
             val response = nfcV.transceive(cmd)
             
         if (response != null && response.size >= 5) {
-            if (response[0].toInt() and STATUS_ERROR_MASK != 0) {
+            if ((response[0].toInt() and STATUS_ERROR_MASK) != 0) {
                 Log.w(TAG, "CAEN qLOG response error: ${response[0]}")
                 return Pair(null, null)
             }
