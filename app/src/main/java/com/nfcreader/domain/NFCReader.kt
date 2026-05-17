@@ -29,7 +29,7 @@ object NFCReader {
     private const val STATUS_ERROR_MASK = 0x01
     private const val INVALID_SAMPLE = 0xFFFF
     private const val TEMP_MAX_RAW = 70 * 32
-    private const val TEMP_NEGATIVE_MIN_RAW = 7232
+    private const val TEMP_NEGATIVE_RAW_START = 7232
     private const val TEMP_NEGATIVE_OFFSET = 8192
     private const val HUMIDITY_MAX_RAW = 100 * 32
     private const val MIN_TEMPERATURE = -30.0
@@ -152,10 +152,11 @@ object NFCReader {
         if (rawValue == INVALID_SAMPLE) {
             return null
         }
+        // RT0013 reference implementation clamps values above the maximum to the max range.
         val value = when {
             rawValue in 0..TEMP_MAX_RAW -> rawValue / FIXED_POINT_SCALE
-            rawValue in (TEMP_MAX_RAW + 1) until TEMP_NEGATIVE_MIN_RAW -> MAX_TEMPERATURE
-            rawValue in TEMP_NEGATIVE_MIN_RAW until TEMP_NEGATIVE_OFFSET -> (rawValue - TEMP_NEGATIVE_OFFSET) / FIXED_POINT_SCALE
+            rawValue in (TEMP_MAX_RAW + 1) until TEMP_NEGATIVE_RAW_START -> MAX_TEMPERATURE
+            rawValue in TEMP_NEGATIVE_RAW_START until TEMP_NEGATIVE_OFFSET -> (rawValue - TEMP_NEGATIVE_OFFSET) / FIXED_POINT_SCALE
             else -> null
         }
         return value?.takeIf { it in MIN_TEMPERATURE..MAX_TEMPERATURE }
@@ -165,6 +166,7 @@ object NFCReader {
         if (rawValue == INVALID_SAMPLE) {
             return null
         }
+        // RT0013 reference implementation clamps values above the maximum to the max range.
         val value = when {
             rawValue in 0..HUMIDITY_MAX_RAW -> rawValue / FIXED_POINT_SCALE
             rawValue > HUMIDITY_MAX_RAW -> MAX_HUMIDITY
