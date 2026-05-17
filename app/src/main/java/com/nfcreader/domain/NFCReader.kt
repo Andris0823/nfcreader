@@ -29,12 +29,11 @@ object NFCReader {
     private const val STATUS_ERROR_MASK = 0x01
     private const val INVALID_SAMPLE = 0xFFFF
     private const val TEMP_MAX_RAW = 70 * 32
+    // -30°C encoded as (value * 32) + 8192 -> 7232
     private const val TEMP_NEGATIVE_RAW_START = 7232
     private const val TEMP_NEGATIVE_OFFSET = 8192
     private const val HUMIDITY_MAX_RAW = 100 * 32
-    private const val MIN_TEMPERATURE = -30.0
     private const val MAX_TEMPERATURE = 70.0
-    private const val MIN_HUMIDITY = 0.0
     private const val MAX_HUMIDITY = 100.0
     
     /**
@@ -159,7 +158,7 @@ object NFCReader {
             rawValue in TEMP_NEGATIVE_RAW_START until TEMP_NEGATIVE_OFFSET -> (rawValue - TEMP_NEGATIVE_OFFSET) / FIXED_POINT_SCALE
             else -> null
         }
-        return value?.takeIf { it in MIN_TEMPERATURE..MAX_TEMPERATURE }
+        return value
     }
 
     private fun decodeHumidity(rawValue: Int): Double? {
@@ -172,7 +171,7 @@ object NFCReader {
             rawValue > HUMIDITY_MAX_RAW -> MAX_HUMIDITY
             else -> null
         }
-        return value?.takeIf { it in MIN_HUMIDITY..MAX_HUMIDITY }
+        return value
     }
     
     /**
