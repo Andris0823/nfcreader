@@ -206,10 +206,7 @@ fun TagCard(
                 }
                 
                 TextButton(onClick = onDelete) {
-                    Text(
-                        text = stringResource(R.string.delete_tag),
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Text(text = stringResource(R.string.delete_tag))
                 }
             }
             
