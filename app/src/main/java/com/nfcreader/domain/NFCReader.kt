@@ -31,7 +31,7 @@ object NFCReader {
     private const val INVALID_SAMPLE = 0xFFFF
     // 70°C in fixed-point format (70 * 32 = 2240)
     private const val TEMP_MAX_RAW = 70 * FIXED_POINT_SCALE
-    // -30°C encoded as 8192 - 960 = 7232 in RT0013 fixed-point.
+    // -30°C in fixed-point (8192 + (-30 * 32)) = 7232.
     private const val TEMP_NEGATIVE_RAW_START = 7232
     // RT0013 uses a +8192 offset for negative temperatures in fixed-point encoding.
     private const val TEMP_NEGATIVE_OFFSET = 8192
@@ -159,7 +159,7 @@ object NFCReader {
         // RT0013 reference implementation clamps values above the maximum to the max range.
         val value = when {
             rawValue in 0..TEMP_MAX_RAW -> rawValue * FIXED_POINT_MULTIPLIER
-            // Values between max and negative-encoding start are clamped to max per RT0013 reference.
+            // Values between max and negative-encoding start are reserved in RT0013 and clamped to max per reference.
             rawValue in (TEMP_MAX_RAW + 1) until TEMP_NEGATIVE_RAW_START -> MAX_TEMPERATURE
             // Negative values are encoded as (8192 + value * 32), yielding raw 7232..8191 (-30°C to just below 0°C).
             rawValue in TEMP_NEGATIVE_RAW_START until TEMP_NEGATIVE_OFFSET -> (rawValue - TEMP_NEGATIVE_OFFSET) * FIXED_POINT_MULTIPLIER
