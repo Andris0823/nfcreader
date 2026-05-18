@@ -76,7 +76,10 @@ object NFCReader {
             val statusCode = response[1]
 
             if (replyId != transactionId || statusCode != COMMAND_STATUS_SUCCESS) {
-                Log.e(TAG, "CAEN hiba válasz. Státusz: $statusCode")
+                Log.e(
+                    TAG,
+                    "CAEN hiba válasz. ReplyId: $replyId, státusz: $statusCode, válasz: ${response.toHexString()}"
+                )
                 return null
             }
 
@@ -91,7 +94,7 @@ object NFCReader {
 
     private fun decodeLatestSample(bytes: ByteArray, startIndex: Int): SensorData? {
         if (bytes.size < startIndex + 4) {
-            Log.w(TAG, "CAEN válasz túl rövid: ${bytes.size} byte")
+            Log.w(TAG, "CAEN válasz túl rövid: ${bytes.size} bytes")
             return null
         }
 
