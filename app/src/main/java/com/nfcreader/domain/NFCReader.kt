@@ -25,8 +25,8 @@ object NFCReader {
     private const val LENGTH_PAGE = 0x06
     private const val RESPONSE_PAGE = 0x07
     private const val EXECUTE_PAGE = 0x85
-    private const val INTERNAL_LAST_SAMPLE_VALUE_T = 0x62
-    private const val INTERNAL_SAMPLE_WORD_COUNT = 0x02
+    private const val LAST_SAMPLE_VALUE_T_ADDRESS = 0x62
+    private const val LAST_SAMPLE_READ_WORD_COUNT = 0x02
     private const val COMMAND_READ_INTERNAL_MEMORY = 0x12
     private const val COMMAND_STATUS_SUCCESS = 0x00.toByte()
 
@@ -61,11 +61,11 @@ object NFCReader {
             )
             mfc.writePage(
                 REQUEST_PAGE,
-                byteArrayOf(0x00, INTERNAL_LAST_SAMPLE_VALUE_T.toByte(), 0x00, 0x00)
+                byteArrayOf(0x00, LAST_SAMPLE_VALUE_T_ADDRESS.toByte(), 0x00, 0x00)
             )
             mfc.writePage(
                 LENGTH_PAGE,
-                byteArrayOf(0x00, INTERNAL_SAMPLE_WORD_COUNT.toByte(), 0x00, 0x00)
+                byteArrayOf(0x00, LAST_SAMPLE_READ_WORD_COUNT.toByte(), 0x00, 0x00)
             )
             mfc.writePage(EXECUTE_PAGE, byteArrayOf(0x01, 0x00, 0x00, 0x00))
 
@@ -108,7 +108,7 @@ object NFCReader {
             return null
         }
 
-        // CAEN stores negative temperatures with the NEGATIVE_TEMPERATURE_OFFSET offset.
+        // CAEN encodes negative temperatures by adding NEGATIVE_TEMPERATURE_OFFSET.
         val temperature = if (tempRaw >= NEGATIVE_TEMPERATURE_THRESHOLD) {
             (tempRaw - NEGATIVE_TEMPERATURE_OFFSET) / FIXED_POINT_SCALE
         } else {
