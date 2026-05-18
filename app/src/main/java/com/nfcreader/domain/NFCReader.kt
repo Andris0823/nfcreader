@@ -25,8 +25,8 @@ object NFCReader {
     private const val TRIGGER_PAGE = 0x85
     private const val CMD_READ: Byte = 0x12
     private const val REPLY_ACK: Byte = 0xAC.toByte()
-    private const val LOGICAL_REGISTER_LAST_SAMPLE_T = 0x62
-    private const val WORD_COUNT_T_AND_H = 0x02
+    private const val LOGICAL_REGISTER_LAST_SAMPLE_T: Byte = 0x62
+    private const val WORD_COUNT_T_AND_H: Byte = 0x02
     private const val REPLY_POLL_ATTEMPTS = 5
     private const val REPLY_POLL_DELAY_MS = 120L
 
@@ -58,9 +58,9 @@ object NFCReader {
             mfc.writePage(COMMAND_PAGE, byteArrayOf(transactionId, CMD_READ, 0x00, 0x00))
             mfc.writePage(
                 ADDRESS_PAGE,
-                byteArrayOf(LOGICAL_REGISTER_LAST_SAMPLE_T.toByte(), 0x00, 0x00, 0x00)
+                byteArrayOf(LOGICAL_REGISTER_LAST_SAMPLE_T, 0x00, 0x00, 0x00)
             )
-            mfc.writePage(SIZE_PAGE, byteArrayOf(WORD_COUNT_T_AND_H.toByte(), 0x00, 0x00, 0x00))
+            mfc.writePage(SIZE_PAGE, byteArrayOf(WORD_COUNT_T_AND_H, 0x00, 0x00, 0x00))
             mfc.writePage(TRIGGER_PAGE, byteArrayOf(0x01, 0x00, 0x00, 0x00))
 
             repeat(REPLY_POLL_ATTEMPTS) { attempt ->
