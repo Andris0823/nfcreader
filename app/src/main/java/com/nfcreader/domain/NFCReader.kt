@@ -4,7 +4,6 @@ import android.nfc.Tag
 import android.nfc.tech.MifareUltralight
 import android.nfc.tech.Ndef
 import android.nfc.tech.NfcA
-import android.nfc.tech.NfcV
 import android.util.Log
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -19,12 +18,17 @@ object NFCReader {
     private const val TAG = "NFCReader"
     private const val FIXED_POINT_SCALE = 32.0
     private const val INVALID_SAMPLE = 0xFFFF
-    private const val LAST_SAMPLE_PAGE = 0x31
-    private const val ISO15693_READ_SINGLE_BLOCK = 0x20.toByte()
-    private const val ISO15693_FLAGS = 0x02.toByte()
-    private const val ISO15693_STATUS_SUCCESS = 0x00.toByte()
     private const val NEGATIVE_TEMPERATURE_THRESHOLD = 7232
     private const val NEGATIVE_TEMPERATURE_OFFSET = 8192
+    private const val COMMAND_PAGE = 0x04
+    private const val REQUEST_PAGE = 0x05
+    private const val LENGTH_PAGE = 0x06
+    private const val RESPONSE_PAGE = 0x07
+    private const val EXECUTE_PAGE = 0x85
+    private const val INTERNAL_LAST_SAMPLE_VALUE_T = 0x62
+    private const val INTERNAL_SAMPLE_WORD_COUNT = 0x02
+    private const val COMMAND_READ_INTERNAL_MEMORY = 0x12
+    private const val COMMAND_STATUS_SUCCESS = 0x00.toByte()
 
     fun getTagId(tag: Tag): String {
         return tag.id.toHexString()
@@ -45,47 +49,43 @@ object NFCReader {
     }
 
     fun readCAENqLOGSensors(tag: Tag): SensorData? {
-        return readCAENFromMifareUltralight(tag)
-            ?: readCAENFromNfcV(tag)
-    }
-
-    private fun readCAENFromMifareUltralight(tag: Tag): SensorData? {
         val mfc = MifareUltralight.get(tag) ?: return null
+
         try {
             mfc.connect()
-            val pageData = mfc.readPages(LAST_SAMPLE_PAGE) ?: return null
-            return decodeLatestSample(pageData, 0)
-        } catch (e: Exception) {
-            Log.e(TAG, "Hiba a CAEN mintaolvasás közben MifareUltralight módban", e)
-            return null
-        } finally {
-            try { mfc.close() } catch (_: Exception) {}
-        }
-    }
+            val transactionId: Byte = 0x01
 
-    private fun readCAENFromNfcV(tag: Tag): SensorData? {
-        val nfcV = NfcV.get(tag) ?: return null
-        return try {
-            nfcV.connect()
-            val response = nfcV.transceive(
-                byteArrayOf(
-                    ISO15693_FLAGS,
-                    ISO15693_READ_SINGLE_BLOCK,
-                    LAST_SAMPLE_PAGE.toByte()
-                )
-            ) ?: return null
+            mfc.writePage(
+                COMMAND_PAGE,
+                byteArrayOf(transactionId, COMMAND_READ_INTERNAL_MEMORY.toByte(), 0x00, 0x00)
+            )
+            mfc.writePage(
+                REQUEST_PAGE,
+                byteArrayOf(0x00, INTERNAL_LAST_SAMPLE_VALUE_T.toByte(), 0x00, 0x00)
+            )
+            mfc.writePage(
+                LENGTH_PAGE,
+                byteArrayOf(0x00, INTERNAL_SAMPLE_WORD_COUNT.toByte(), 0x00, 0x00)
+            )
+            mfc.writePage(EXECUTE_PAGE, byteArrayOf(0x01, 0x00, 0x00, 0x00))
 
-            if (response.isEmpty() || response[0] != ISO15693_STATUS_SUCCESS) {
-                Log.e(TAG, "CAEN NfcV olvasási hiba. Státusz: ${response.firstOrNull()}")
+            Thread.sleep(120)
+
+            val response = mfc.readPages(RESPONSE_PAGE) ?: return null
+            val replyId = response[0]
+            val statusCode = response[1]
+
+            if (replyId != transactionId || statusCode != COMMAND_STATUS_SUCCESS) {
+                Log.e(TAG, "CAEN hiba válasz. Státusz: $statusCode")
                 return null
             }
 
-            decodeLatestSample(response, 1)
+            return decodeLatestSample(response, 4)
         } catch (e: Exception) {
-            Log.e(TAG, "Hiba a CAEN mintaolvasás közben NfcV módban", e)
-            null
+            Log.e(TAG, "Hiba az NFC szenzor olvasása közben", e)
+            return null
         } finally {
-            try { nfcV.close() } catch (_: Exception) {}
+            try { mfc.close() } catch (_: Exception) {}
         }
     }
 
@@ -104,7 +104,7 @@ object NFCReader {
             return null
         }
 
-        // A CAEN belső reprezentációja a negatív értékeket 8192-es offsettel tárolja.
+        // A CAEN belső reprezentációja a negatív értékeket a NEGATIVE_TEMPERATURE_OFFSET offsettel tárolja.
         val temperature = if (tempRaw >= NEGATIVE_TEMPERATURE_THRESHOLD) {
             (tempRaw - NEGATIVE_TEMPERATURE_OFFSET) / FIXED_POINT_SCALE
         } else {
