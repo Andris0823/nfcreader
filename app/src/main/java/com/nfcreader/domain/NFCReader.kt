@@ -4,6 +4,7 @@ import android.nfc.Tag
 import android.nfc.tech.MifareUltralight
 import android.nfc.tech.Ndef
 import android.nfc.tech.NfcA
+import android.nfc.tech.NfcV
 import android.util.Log
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -18,6 +19,9 @@ object NFCReader {
     private const val TAG = "NFCReader"
     private const val FIXED_POINT_SCALE = 32.0
     private const val INVALID_SAMPLE = 0xFFFF
+    private const val LAST_SAMPLE_PAGE = 0x31
+    private const val ISO15693_READ_SINGLE_BLOCK = 0x20.toByte()
+    private const val ISO15693_FLAGS = 0x02.toByte()
 
     fun getTagId(tag: Tag): String {
         return tag.id.toHexString()
@@ -38,54 +42,74 @@ object NFCReader {
     }
 
     fun readCAENqLOGSensors(tag: Tag): SensorData? {
-        val mfc = MifareUltralight.get(tag) ?: return null
+        return readCAENFromMifareUltralight(tag)
+            ?: readCAENFromNfcV(tag)
+    }
 
+    private fun readCAENFromMifareUltralight(tag: Tag): SensorData? {
+        val mfc = MifareUltralight.get(tag) ?: return null
         try {
             mfc.connect()
-            val transactionId: Byte = 0x01
-
-            mfc.writePage(0x04, byteArrayOf(transactionId, 0x12, 0x00, 0x00))
-            mfc.writePage(0x05, byteArrayOf(0x00, 0x22, 0x00, 0x00))
-            mfc.writePage(0x06, byteArrayOf(0x00, 0x02, 0x00, 0x00))
-            mfc.writePage(0x85, byteArrayOf(0x01, 0x00, 0x00, 0x00))
-
-            Thread.sleep(120)
-
-            val response = mfc.readPages(0x07) ?: return null
-
-            val replyId = response[0]
-            val statusCode = response[1]
-
-            if (replyId == transactionId && statusCode == 0x00.toByte()) {
-
-                // Little-Endian dekódolás a CAEN qLOG RT0013 hardver alapján
-                val tempRaw = (response[4].toInt() and 0xFF) or ((response[5].toInt() and 0xFF) shl 8)
-                val humRaw = (response[6].toInt() and 0xFF) or ((response[7].toInt() and 0xFF) shl 8)
-
-                if (tempRaw == INVALID_SAMPLE || humRaw == INVALID_SAMPLE) {
-                    Log.w(TAG, "Nincs még érvényes rögzített minta a chipen.")
-                    return null
-                }
-
-                val temperature = if (tempRaw >= 7232) {
-                    (tempRaw - 8192) / FIXED_POINT_SCALE
-                } else {
-                    tempRaw / FIXED_POINT_SCALE
-                }
-
-                val humidity = humRaw / FIXED_POINT_SCALE
-
-                return SensorData(temperature, humidity)
-            } else {
-                Log.e(TAG, "CAEN hiba válasz. Státusz: $statusCode")
-                return null
-            }
+            val pageData = mfc.readPages(LAST_SAMPLE_PAGE) ?: return null
+            return decodeLatestSample(pageData, 0)
         } catch (e: Exception) {
-            Log.e(TAG, "Hiba az NFC szenzor olvasása közben", e)
+            Log.e(TAG, "Hiba a CAEN mintaolvasás közben MifareUltralight módban", e)
             return null
         } finally {
             try { mfc.close() } catch (_: Exception) {}
         }
+    }
+
+    private fun readCAENFromNfcV(tag: Tag): SensorData? {
+        val nfcV = NfcV.get(tag) ?: return null
+        return try {
+            nfcV.connect()
+            val response = nfcV.transceive(
+                byteArrayOf(
+                    ISO15693_FLAGS,
+                    ISO15693_READ_SINGLE_BLOCK,
+                    LAST_SAMPLE_PAGE.toByte()
+                )
+            ) ?: return null
+
+            if (response.isEmpty() || response[0] != 0x00.toByte()) {
+                Log.e(TAG, "CAEN NfcV olvasási hiba. Státusz: ${response.firstOrNull()}")
+                return null
+            }
+
+            decodeLatestSample(response, 1)
+        } catch (e: Exception) {
+            Log.e(TAG, "Hiba a CAEN mintaolvasás közben NfcV módban", e)
+            null
+        } finally {
+            try { nfcV.close() } catch (_: Exception) {}
+        }
+    }
+
+    private fun decodeLatestSample(bytes: ByteArray, startIndex: Int): SensorData? {
+        if (bytes.size < startIndex + 4) {
+            return null
+        }
+
+        val tempRaw = (bytes[startIndex].toInt() and 0xFF) or
+            ((bytes[startIndex + 1].toInt() and 0xFF) shl 8)
+        val humRaw = (bytes[startIndex + 2].toInt() and 0xFF) or
+            ((bytes[startIndex + 3].toInt() and 0xFF) shl 8)
+
+        if (tempRaw == INVALID_SAMPLE || humRaw == INVALID_SAMPLE) {
+            Log.w(TAG, "Nincs még érvényes rögzített minta a chipen.")
+            return null
+        }
+
+        val temperature = if (tempRaw >= 7232) {
+            (tempRaw - 8192) / FIXED_POINT_SCALE
+        } else {
+            tempRaw / FIXED_POINT_SCALE
+        }
+
+        val humidity = humRaw / FIXED_POINT_SCALE
+
+        return SensorData(temperature, humidity)
     }
 
     private fun readMifareUltralight(tag: Tag): ByteArray? {
