@@ -18,6 +18,7 @@ object NFCReader {
     private const val TAG = "NFCReader"
     private const val FIXED_POINT_SCALE = 32.0
     private const val INVALID_SAMPLE = 0xFFFF
+    // CAEN stores negative temperatures in a biased 13-bit fixed-point domain.
     private const val NEGATIVE_TEMPERATURE_THRESHOLD = 7232
     private const val NEGATIVE_TEMPERATURE_OFFSET = 8192
     private const val COMMAND_PAGE = 0x04
@@ -69,6 +70,7 @@ object NFCReader {
             )
             mfc.writePage(EXECUTE_PAGE, byteArrayOf(0x01, 0x00, 0x00, 0x00))
 
+            // The chip needs a short settle time after setting EXECUTE_PAGE before the response is readable.
             Thread.sleep(120)
 
             val response = mfc.readPages(RESPONSE_PAGE) ?: return null
@@ -94,7 +96,7 @@ object NFCReader {
 
     private fun decodeLatestSample(bytes: ByteArray, startIndex: Int): SensorData? {
         if (bytes.size < startIndex + 4) {
-            Log.w(TAG, "CAEN válasz túl rövid: ${bytes.size} bytes")
+            Log.w(TAG, "CAEN válasz túl rövid: ${bytes.size} bytes, legalább ${startIndex + 4} kell")
             return null
         }
 
@@ -108,7 +110,7 @@ object NFCReader {
             return null
         }
 
-        // CAEN encodes negative temperatures by adding NEGATIVE_TEMPERATURE_OFFSET.
+        // Values from NEGATIVE_TEMPERATURE_THRESHOLD upward represent negative temperatures encoded with NEGATIVE_TEMPERATURE_OFFSET.
         val temperature = if (tempRaw >= NEGATIVE_TEMPERATURE_THRESHOLD) {
             (tempRaw - NEGATIVE_TEMPERATURE_OFFSET) / FIXED_POINT_SCALE
         } else {
