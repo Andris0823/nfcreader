@@ -18,6 +18,17 @@ object NFCReader {
     private const val TAG = "NFCReader"
     private const val FIXED_POINT_SCALE = 32.0
     private const val INVALID_SAMPLE = 0xFFFF
+    private const val COMMAND_PAGE = 0x04
+    private const val ADDRESS_PAGE = 0x05
+    private const val SIZE_PAGE = 0x06
+    private const val REPLY_PAGE = 0x07
+    private const val TRIGGER_PAGE = 0x85
+    private const val CMD_READ: Byte = 0x12
+    private const val REPLY_ACK: Byte = 0xAC.toByte()
+    private const val LOGICAL_REGISTER_LAST_SAMPLE_T: Byte = 0x62
+    private const val WORD_COUNT_T_AND_H: Byte = 0x02
+    private const val REPLY_POLL_ATTEMPTS = 5
+    private const val REPLY_POLL_DELAY_MS = 120L
 
     fun getTagId(tag: Tag): String {
         return tag.id.toHexString()
@@ -44,23 +55,40 @@ object NFCReader {
             mfc.connect()
             val transactionId: Byte = 0x01
 
-            mfc.writePage(0x04, byteArrayOf(transactionId, 0x12, 0x00, 0x00))
-            mfc.writePage(0x05, byteArrayOf(0x00, 0x22, 0x00, 0x00))
-            mfc.writePage(0x06, byteArrayOf(0x00, 0x02, 0x00, 0x00))
-            mfc.writePage(0x85, byteArrayOf(0x01, 0x00, 0x00, 0x00))
+            mfc.writePage(COMMAND_PAGE, byteArrayOf(transactionId, CMD_READ, 0x00, 0x00))
+            mfc.writePage(
+                ADDRESS_PAGE,
+                byteArrayOf(LOGICAL_REGISTER_LAST_SAMPLE_T, 0x00, 0x00, 0x00)
+            )
+            mfc.writePage(SIZE_PAGE, byteArrayOf(WORD_COUNT_T_AND_H, 0x00, 0x00, 0x00))
+            mfc.writePage(TRIGGER_PAGE, byteArrayOf(0x01, 0x00, 0x00, 0x00))
 
-            Thread.sleep(120)
+            repeat(REPLY_POLL_ATTEMPTS) { attempt ->
+                Thread.sleep(REPLY_POLL_DELAY_MS)
+                val response = mfc.readPages(REPLY_PAGE) ?: return null
+                if (response.size < 8) {
+                    Log.e(TAG, "Túl rövid NFC válasz a szenzor olvasáshoz.")
+                    return null
+                }
 
-            val response = mfc.readPages(0x07) ?: return null
+                val replyId = response[0]
+                val statusCode = response[1]
 
-            val replyId = response[0]
-            val statusCode = response[1]
+                if (replyId != transactionId) {
+                    if (attempt == REPLY_POLL_ATTEMPTS - 1) {
+                        Log.e(TAG, "Nem érkezett válasz a várt tranzakcióazonosítóval.")
+                        return null
+                    }
+                    return@repeat
+                }
 
-            if (replyId == transactionId && statusCode == 0x00.toByte()) {
+                if (statusCode != REPLY_ACK) {
+                    Log.e(TAG, "CAEN hiba válasz. Státusz: $statusCode")
+                    return null
+                }
 
-                // Little-Endian dekódolás a CAEN qLOG RT0013 hardver alapján
-                val tempRaw = (response[4].toInt() and 0xFF) or ((response[5].toInt() and 0xFF) shl 8)
-                val humRaw = (response[6].toInt() and 0xFF) or ((response[7].toInt() and 0xFF) shl 8)
+                val tempRaw = readUInt16BigEndian(response, 4)
+                val humRaw = readUInt16BigEndian(response, 6)
 
                 if (tempRaw == INVALID_SAMPLE || humRaw == INVALID_SAMPLE) {
                     Log.w(TAG, "Nincs még érvényes rögzített minta a chipen.")
@@ -76,16 +104,19 @@ object NFCReader {
                 val humidity = humRaw / FIXED_POINT_SCALE
 
                 return SensorData(temperature, humidity)
-            } else {
-                Log.e(TAG, "CAEN hiba válasz. Státusz: $statusCode")
-                return null
             }
+            return null
         } catch (e: Exception) {
             Log.e(TAG, "Hiba az NFC szenzor olvasása közben", e)
             return null
         } finally {
             try { mfc.close() } catch (_: Exception) {}
         }
+    }
+
+    private fun readUInt16BigEndian(response: ByteArray, startIndex: Int): Int {
+        return ((response[startIndex].toInt() and 0xFF) shl 8) or
+            (response[startIndex + 1].toInt() and 0xFF)
     }
 
     private fun readMifareUltralight(tag: Tag): ByteArray? {
