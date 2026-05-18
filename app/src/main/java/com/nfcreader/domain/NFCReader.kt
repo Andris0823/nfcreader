@@ -87,7 +87,7 @@ object NFCReader {
 
             return decodeLatestSample(response, 4)
         } catch (e: Exception) {
-            Log.e(TAG, "Hiba az NFC szenzor olvasása közben", e)
+            Log.e(TAG, "Error reading NFC sensor", e)
             return null
         } finally {
             try { mfc.close() } catch (_: Exception) {}
