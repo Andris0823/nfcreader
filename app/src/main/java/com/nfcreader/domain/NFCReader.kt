@@ -70,7 +70,7 @@ object NFCReader {
             )
             mfc.writePage(EXECUTE_PAGE, byteArrayOf(0x01, 0x00, 0x00, 0x00))
 
-            // The chip needs a short settle time after setting EXECUTE_PAGE before the response is readable.
+            // Empirically, the chip needs about 120 ms after EXECUTE_PAGE before the response becomes readable.
             Thread.sleep(120)
 
             val response = mfc.readPages(RESPONSE_PAGE) ?: return null
@@ -80,7 +80,7 @@ object NFCReader {
             if (replyId != transactionId || statusCode != COMMAND_STATUS_SUCCESS) {
                 Log.e(
                     TAG,
-                    "CAEN hiba válasz. ReplyId: $replyId, státusz: $statusCode, válasz: ${response.toHexString()}"
+                    "CAEN error response. ReplyId: $replyId, status: $statusCode, response: ${response.toHexString()}"
                 )
                 return null
             }
@@ -96,7 +96,7 @@ object NFCReader {
 
     private fun decodeLatestSample(bytes: ByteArray, startIndex: Int): SensorData? {
         if (bytes.size < startIndex + 4) {
-            Log.w(TAG, "CAEN válasz túl rövid: ${bytes.size} bytes, legalább ${startIndex + 4} kell")
+            Log.w(TAG, "CAEN response too short: ${bytes.size} bytes, expected at least ${startIndex + 4}")
             return null
         }
 
@@ -106,7 +106,7 @@ object NFCReader {
             ((bytes[startIndex + 3].toInt() and 0xFF) shl 8)
 
         if (tempRaw == INVALID_SAMPLE || humRaw == INVALID_SAMPLE) {
-            Log.w(TAG, "Nincs még érvényes rögzített minta a chipen.")
+            Log.w(TAG, "No valid recorded sample is available on the chip yet.")
             return null
         }
 
