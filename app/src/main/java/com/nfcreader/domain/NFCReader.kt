@@ -22,6 +22,9 @@ object NFCReader {
     private const val LAST_SAMPLE_PAGE = 0x31
     private const val ISO15693_READ_SINGLE_BLOCK = 0x20.toByte()
     private const val ISO15693_FLAGS = 0x02.toByte()
+    private const val ISO15693_STATUS_SUCCESS = 0x00.toByte()
+    private const val NEGATIVE_TEMPERATURE_THRESHOLD = 7232
+    private const val NEGATIVE_TEMPERATURE_OFFSET = 8192
 
     fun getTagId(tag: Tag): String {
         return tag.id.toHexString()
@@ -72,7 +75,7 @@ object NFCReader {
                 )
             ) ?: return null
 
-            if (response.isEmpty() || response[0] != 0x00.toByte()) {
+            if (response.isEmpty() || response[0] != ISO15693_STATUS_SUCCESS) {
                 Log.e(TAG, "CAEN NfcV olvasási hiba. Státusz: ${response.firstOrNull()}")
                 return null
             }
@@ -101,8 +104,9 @@ object NFCReader {
             return null
         }
 
-        val temperature = if (tempRaw >= 7232) {
-            (tempRaw - 8192) / FIXED_POINT_SCALE
+        // A CAEN belső reprezentációja a negatív értékeket 8192-es offsettel tárolja.
+        val temperature = if (tempRaw >= NEGATIVE_TEMPERATURE_THRESHOLD) {
+            (tempRaw - NEGATIVE_TEMPERATURE_OFFSET) / FIXED_POINT_SCALE
         } else {
             tempRaw / FIXED_POINT_SCALE
         }
