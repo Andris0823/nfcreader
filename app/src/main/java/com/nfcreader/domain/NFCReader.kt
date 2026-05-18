@@ -91,6 +91,7 @@ object NFCReader {
 
     private fun decodeLatestSample(bytes: ByteArray, startIndex: Int): SensorData? {
         if (bytes.size < startIndex + 4) {
+            Log.w(TAG, "CAEN válasz túl rövid: ${bytes.size} byte")
             return null
         }
 
@@ -104,7 +105,7 @@ object NFCReader {
             return null
         }
 
-        // A CAEN belső reprezentációja a negatív értékeket a NEGATIVE_TEMPERATURE_OFFSET offsettel tárolja.
+        // CAEN stores negative temperatures with the NEGATIVE_TEMPERATURE_OFFSET offset.
         val temperature = if (tempRaw >= NEGATIVE_TEMPERATURE_THRESHOLD) {
             (tempRaw - NEGATIVE_TEMPERATURE_OFFSET) / FIXED_POINT_SCALE
         } else {
